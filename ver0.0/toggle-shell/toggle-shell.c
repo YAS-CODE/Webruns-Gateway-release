@@ -46,12 +46,23 @@ PROCESS_THREAD(toggle_shell, ev, data)
   PROCESS_BEGIN();
 
   SENSORS_ACTIVATE(cc2538_temp_sensor);
+  SENSORS_ACTIVATE(vdd3_sensor);
   int temp;
+  int batteryval;
   for(;;) {
     PROCESS_WAIT_EVENT_UNTIL(ev == serial_line_event_message && data != NULL);
     if(strcmp("READTEMP",(char *)data)==0){
         temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
         printf("%d\n",temp);
+    }
+    if(strcmp("READBAT",(char *)data)==0){
+        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+        printf("%d\n",batteryval);
+    }
+    if(strcmp("READTEMP&BAT",(char *)data)==0){
+        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+        printf("\"Temperature\": \"%d\",\"BatteryVal\": \"%d\"\n",temp,batteryval);
     }
     else if(strcmp("EXIT",(char *)data)==0){
         printf("exiting now!!!\n");
@@ -61,6 +72,7 @@ PROCESS_THREAD(toggle_shell, ev, data)
         //printf("Query \"%s\" \n", (char *)data );
     }
   }
+
 
 
   PROCESS_END();
