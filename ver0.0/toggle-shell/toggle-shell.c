@@ -36,6 +36,12 @@
 #include "dev/bme280/bme280.h"
 #include "dev/bme280/bme280-sensor.h"
 #include "dev/zoul-sensors.h"
+#include "sys/node-id.h"
+#include "dev/radio.h"
+#include "net/netstack.h"
+#include "net/packetbuf.h"
+
+#include "os/dev/ble-hal.h"
 
 PROCESS(toggle_shell, "toggle shell");
 AUTOSTART_PROCESSES(&toggle_shell);
@@ -43,37 +49,85 @@ AUTOSTART_PROCESSES(&toggle_shell);
 PROCESS_THREAD(toggle_shell, ev, data)
 {
 
-  PROCESS_BEGIN();
+        PROCESS_BEGIN();
 
-  SENSORS_ACTIVATE(cc2538_temp_sensor);
-  SENSORS_ACTIVATE(vdd3_sensor);
-  int temp;
-  int batteryval;
-  for(;;) {
-    PROCESS_WAIT_EVENT_UNTIL(ev == serial_line_event_message && data != NULL);
-    if(strcmp("READTEMP",(char *)data)==0){
-        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-        printf("%d\n",temp);
-    }
-    if(strcmp("READBAT",(char *)data)==0){
-        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-        printf("%d\n",batteryval);
-    }
-    if(strcmp("READTEMP&BAT",(char *)data)==0){
-        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-        printf("\"Temperature\": \"%d\",\"BatteryVal\": \"%d\"\n",temp,batteryval);
-    }
-    else if(strcmp("EXIT",(char *)data)==0){
-        printf("exiting now!!!\n");
-        break;
-    }
-    else{
-        //printf("Query \"%s\" \n", (char *)data );
-    }
-  }
+        SENSORS_ACTIVATE(cc2538_temp_sensor);
+        SENSORS_ACTIVATE(vdd3_sensor);
+        int temp;
+        int batteryval;
+        radio_value_t value;
+        int8_t rssi = 0;
+        int tx_level, lqi, cha, cha_min, cha_max, pan_id, rx_mode, tx_mode, ble_buffer_amount;
+        for(;;) {
+                PROCESS_WAIT_EVENT_UNTIL(ev == serial_line_event_message && data != NULL);
+                if(strcmp("READTEMP",(char *)data)==0){
+                        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+                        printf("%d\n",temp);
+                }
+                if(strcmp("READBAT",(char *)data)==0){
+                        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+                        printf("%d\n",batteryval);
+                }
+                if(strcmp("READTEMP&BAT",(char *)data)==0){
+                        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+                        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+                        printf("\"Temperature\": \"%d\",\"BatteryVal\": \"%d\"\n",temp,batteryval);
+                }
+                if(strcmp("READSENVAL",(char *)data)==0){
+                        rssi = 0;
+                        lqi=0;
+                        cha=0;cha_min=0;cha_max=0;pan_id=0;rx_mode=0;tx_mode=0;ble_buffer_amount=0;
+                        if(NETSTACK_RADIO.get_value(RADIO_PARAM_RSSI, &value) ==
+                                        RADIO_RESULT_OK) {
+                                rssi = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(PACKETBUF_ATTR_LINK_QUALITY, &value) ==
+                                        RADIO_RESULT_OK) {
+                               lqi = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &value) ==
+                                        RADIO_RESULT_OK) {
+                               cha = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_CONST_CHANNEL_MIN, &value) ==
+                                        RADIO_RESULT_OK) {
+                               cha_min = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_CONST_CHANNEL_MAX, &value) ==
+                                        RADIO_RESULT_OK) {
+                               cha_max = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_PARAM_PAN_ID, &value) ==
+                                        RADIO_RESULT_OK) {
+                               pan_id = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_PARAM_RX_MODE, &value) ==
+                                        RADIO_RESULT_OK) {
+                               rx_mode = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_PARAM_TX_MODE, &value) ==
+                                        RADIO_RESULT_OK) {
+                               tx_mode = (int8_t)value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_CONST_BLE_BUFFER_AMOUNT, &value) ==
+                                        RADIO_RESULT_OK) {
+                               ble_buffer_amount = (int8_t)value;
+                        }
+                        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+                        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+                        NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &tx_level);
+                        printf("\"Temperature\": \"%d\",\"BatteryVal\": \"%d\",\"NodeId\": \"%d\",\"RssiVal\": \"%d\",\"TXLevel\": \"%d\",\"LqiVal\": \"%d\",\"ChaVal\": \"%d\",\"MinChaVal\": \"%d\",\"MaxChaVal\": \"%d\",\"PanIdVal\": \"%d\",\"RxModeVal\": \"%d\",\"TxModeVal\": \"%d\",\"BleBuffVal\": \"%d\"\n",temp,batteryval,node_id,rssi,tx_level,lqi,cha,cha_min,cha_max, pan_id, rx_mode, tx_mode, ble_buffer_amount);
+                }
+                else if(strcmp("EXIT",(char *)data)==0){
+                        printf("exiting now!!!\n");
+                        break;
+                }
+                else{
+                        //printf("Query \"%s\" \n", (char *)data );
+                }
+        }
 
 
 
-  PROCESS_END();
+        PROCESS_END();
 }
