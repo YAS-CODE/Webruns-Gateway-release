@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "contiki.h"
 #include "dev/serial-line.h"
@@ -46,6 +47,17 @@
 PROCESS(toggle_shell, "toggle shell");
 AUTOSTART_PROCESSES(&toggle_shell);
 
+void substring(char s[], char sub[], int p, int l) {
+   int c = 0;
+
+   while (c < l) {
+      sub[c] = s[p+c-1];
+      c++;
+   }
+   sub[c] = '\0';
+}
+
+
 PROCESS_THREAD(toggle_shell, ev, data)
 {
 
@@ -57,7 +69,8 @@ PROCESS_THREAD(toggle_shell, ev, data)
         int batteryval;
         radio_value_t value;
         int8_t rssi = 0;
-        int tx_level, lqi, cha, cha_min, cha_max, pan_id, rx_mode, tx_mode, ble_buffer_amount;
+        int tx_level, lqi, cha, cha_min, cha_max, pan_id, rx_mode, tx_mode, tx_min,tx_max;
+        char strval[50];
         for(;;) {
                 PROCESS_WAIT_EVENT_UNTIL(ev == serial_line_event_message && data != NULL);
                 if(strcmp("READTEMP",(char *)data)==0){
@@ -68,55 +81,88 @@ PROCESS_THREAD(toggle_shell, ev, data)
                         batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
                         printf("%d\n",batteryval);
                 }
-                if(strcmp("READTEMP&BAT",(char *)data)==0){
-                        temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-                        batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-                        printf("\"Temperature\": \"%d\",\"BatteryVal\": \"%d\"\n",temp,batteryval);
+                if(strncmp("SETPANID=",(char *)data,strlen("SETPANID="))==0){
+                        substring((char *)data,strval,strlen("SETPANID=")+1,strlen(data));
+                        pan_id = atoi(strval);                        
+                        if(NETSTACK_RADIO.set_value(RADIO_PARAM_PAN_ID, pan_id) ==
+                                        RADIO_RESULT_OK) {
+                               printf("\"Node_id\": \"%d\",\"Command\": \"SetPanid\",\"Value\": \"%d\",\"Result\": \"Success\"\n",node_id,pan_id);
+                        }
+                        else{
+                                printf("\"Node_id\": \"%d\",\"Command\": \"SetPanid\",\"Value\": \"%d\",\"Result\": \"Failed\"\n",node_id,pan_id);
+                        }
                 }
+                if(strncmp("SETCH=",(char *)data,strlen("SETCH="))==0){
+                        substring((char *)data,strval,strlen("SETCH=")+1,strlen(data));
+                        cha = atoi(strval);
+                        if(NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, cha) ==
+                                        RADIO_RESULT_OK) {
+                               printf("\"Node_id\": \"%d\",\"Command\": \"SetCh\",\"Value\": \"%d\",\"Result\": \"Success\"\n",node_id,cha);
+                        }
+                        else{
+                                printf("\"Node_id\": \"%d\",\"Command\": \"SetCh\",\"Value\": \"%d\",\"Result\": \"Failed\"\n",node_id, cha);
+                        }
+                }
+                if(strncmp("SETTX=",(char *)data,strlen("SETTX="))==0){
+                        substring((char *)data,strval,strlen("SETTX=")+1,strlen(data));
+                        tx_level = atoi(strval);
+                        if(NETSTACK_RADIO.set_value(RADIO_CONST_TXPOWER_MAX, tx_level) ==
+                                        RADIO_RESULT_OK) {
+                               printf("\"Node_id\": \"%d\",\"Command\": \"SetTX\",\"Value\": \"%d\",\"Result\": \"Success\"\n",node_id,tx_level);
+                        }
+                        else{
+                                printf("\"Node_id\": \"%d\",\"Command\": \"SetTX\",\"Value\": \"%d\",\"Result\": \"Failed\"\n",node_id,tx_level);
+                        }
+                }
+
                 if(strcmp("READSENVAL",(char *)data)==0){
                         rssi = 0;
                         lqi=0;
-                        cha=0;cha_min=0;cha_max=0;pan_id=0;rx_mode=0;tx_mode=0;ble_buffer_amount=0;
+                        cha=0;cha_min=0;cha_max=0;pan_id=0;rx_mode=0;tx_mode=0;tx_min=0;tx_max=0;
                         if(NETSTACK_RADIO.get_value(RADIO_PARAM_RSSI, &value) ==
                                         RADIO_RESULT_OK) {
-                                rssi = (int8_t)value;
+                                rssi = value;
                         }
                         if(NETSTACK_RADIO.get_value(PACKETBUF_ATTR_LINK_QUALITY, &value) ==
                                         RADIO_RESULT_OK) {
-                               lqi = (int8_t)value;
+                               lqi = value;
                         }
                         if(NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &value) ==
                                         RADIO_RESULT_OK) {
-                               cha = (int8_t)value;
+                               cha = value;
                         }
                         if(NETSTACK_RADIO.get_value(RADIO_CONST_CHANNEL_MIN, &value) ==
                                         RADIO_RESULT_OK) {
-                               cha_min = (int8_t)value;
+                               cha_min = value;
                         }
                         if(NETSTACK_RADIO.get_value(RADIO_CONST_CHANNEL_MAX, &value) ==
                                         RADIO_RESULT_OK) {
-                               cha_max = (int8_t)value;
+                               cha_max = value;
                         }
                         if(NETSTACK_RADIO.get_value(RADIO_PARAM_PAN_ID, &value) ==
                                         RADIO_RESULT_OK) {
-                               pan_id = (int8_t)value;
+                               pan_id = value;
                         }
                         if(NETSTACK_RADIO.get_value(RADIO_PARAM_RX_MODE, &value) ==
                                         RADIO_RESULT_OK) {
-                               rx_mode = (int8_t)value;
+                               rx_mode = value;
                         }
                         if(NETSTACK_RADIO.get_value(RADIO_PARAM_TX_MODE, &value) ==
                                         RADIO_RESULT_OK) {
-                               tx_mode = (int8_t)value;
-                        }
-                        if(NETSTACK_RADIO.get_value(RADIO_CONST_BLE_BUFFER_AMOUNT, &value) ==
-                                        RADIO_RESULT_OK) {
-                               ble_buffer_amount = (int8_t)value;
+                               tx_mode = value;
                         }
                         temp=cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
                         batteryval=vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
                         NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &tx_level);
-                        printf("\"Temperature\": \"%d\",\"BatteryVal\": \"%d\",\"NodeId\": \"%d\",\"RssiVal\": \"%d\",\"TXLevel\": \"%d\",\"LqiVal\": \"%d\",\"ChaVal\": \"%d\",\"MinChaVal\": \"%d\",\"MaxChaVal\": \"%d\",\"PanIdVal\": \"%d\",\"RxModeVal\": \"%d\",\"TxModeVal\": \"%d\",\"BleBuffVal\": \"%d\"\n",temp,batteryval,node_id,rssi,tx_level,lqi,cha,cha_min,cha_max, pan_id, rx_mode, tx_mode, ble_buffer_amount);
+                        if(NETSTACK_RADIO.get_value(RADIO_CONST_TXPOWER_MIN, &value) ==
+                                        RADIO_RESULT_OK) {
+                               tx_min = value;
+                        }
+                        if(NETSTACK_RADIO.get_value(RADIO_CONST_TXPOWER_MAX, &value) ==
+                                        RADIO_RESULT_OK) {
+                               tx_max = value;
+                        }
+                        printf("\"NodeId\": \"%d\",\"Temperature\": \"%d\",\"BatteryVal\": \"%d\",\"RssiVal\": \"%d\",\"TXLevel\": \"%d\",\"TXMinVal\": \"%d\",\"TXMaxVal\": \"%d\",\"LqiVal\": \"%d\",\"ChaVal\": \"%d\",\"MinChaVal\": \"%d\",\"MaxChaVal\": \"%d\",\"PanIdVal\": \"%d\",\"RxModeVal\": \"%d\",\"TxModeVal\": \"%d\"\n",node_id,temp,batteryval,rssi,tx_level,tx_min,tx_max,lqi,cha,cha_min,cha_max, pan_id, rx_mode, tx_mode);
                 }
                 else if(strcmp("EXIT",(char *)data)==0){
                         printf("exiting now!!!\n");
@@ -131,3 +177,4 @@ PROCESS_THREAD(toggle_shell, ev, data)
 
         PROCESS_END();
 }
+                                   
