@@ -106,7 +106,7 @@ PROCESS_THREAD(toggle_shell, ev, data)
                 if(strncmp("SETTX=",(char *)data,strlen("SETTX="))==0){
                         substring((char *)data,strval,strlen("SETTX=")+1,strlen(data));
                         tx_level = atoi(strval);
-                        if(NETSTACK_RADIO.set_value(RADIO_CONST_TXPOWER_MAX, tx_level) ==
+                        if(NETSTACK_RADIO.set_value(RADIO_PARAM_TXPOWER, tx_level) ==
                                         RADIO_RESULT_OK) {
                                printf("\"Node_id\": \"%d\",\"Command\": \"SetTX\",\"Value\": \"%d\",\"Result\": \"Success\"\n",node_id,tx_level);
                         }
