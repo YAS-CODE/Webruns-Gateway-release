@@ -1,0 +1,19 @@
+[Unit]
+Description=WRIO Gateways Process Restart Upstart Script
+After=auditd.service systemd-user-sessions.service time-sync.target
+
+[Service]
+User=root
+TimeoutStartSec=0
+Type=simple
+KillMode=process
+#export JAVA_HOME=/opt/java/jdk-9
+#export PATH=$PATH:$JAVA_HOME/bin
+WorkingDirectory=/opt/Webruns-Gateway-release/ver0.0/
+ExecStart=/opt/Webruns-Gateway-release/ver0.0/Gateways
+Restart=always
+RestartSec=2
+LimitNOFILE=5555
+
+[Install]
+WantedBy=multi-user.target
